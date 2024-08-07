@@ -1,1 +1,81 @@
-
+#include <SPI.h> 
+#include <Wire.h> 
+#include <Adafruit_SSD1306.h> 
+#include <Adafruit_GFX.h> 
+#include <ESP8266WiFi.h> 
+#include <ThingSpeak.h> 
+#include <LiquidCrystal_I2C.h> 
+LiquidCrystal_I2C lcd(0x27, 16, 2); 
+Adafruit_SSD1306 display(128, 64, &Wire); 
+WiFiClient client; 
+const int sensorPin = A0; 
+int sensorValue; 
+int count = 0; 
+unsigned long starttime = 0; 
+int heartrate = 0; 
+boolean counted = false; 
+long myChannelNumber = 2435890; 
+const char myWriteAPIKey[] = "6TFQBOLR158K44A3"; 
+void setup()
+{ 
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C); 
+  pinMode(D8, OUTPUT); 
+  lcd.init(); 
+  lcd.clear();
+  lcd.backlight(); 
+  Serial.begin(115200); 
+  WiFi.begin("Galaxy M32", "sravya1234"); 
+  while (WiFi.status() != WL_CONNECTED) 
+  { 
+    delay(200); 
+    Serial.print(".."); 
+  } 
+  Serial.println(); 
+  Serial.println("NodeMCU is connected!"); 
+  Serial.println(WiFi.localIP()); 
+  ThingSpeak.begin(client); 
+} 
+void loop()
+{ 
+  starttime = millis(); 
+  while (millis() < starttime + 20000)
+  { 
+    sensorValue = analogRead(sensorPin); 
+    delay(50); 
+    if ((sensorValue >= 590 && sensorValue <= 680) && counted == false) { 
+    count++; 
+    digitalWrite(D8, HIGH); 
+    delay(10); 
+    digitalWrite(D8, LOW); 
+    counted = true; 
+  }
+  else if (sensorValue < 590)
+  {
+    counted = false; 
+    digitalWrite(D8, LOW); 
+  } 
+} 
+Serial.print("Pulse "); 
+Serial.println(count); 
+heartrate = count * 3; 
+Serial.println(); 
+Serial.print("BPM = "); 
+Serial.println(heartrate); 
+Serial.println(); 
+count = 0; 
+lcd.setCursor(2, 0); 
+lcd.print("Beat:"); 
+lcd.setCursor(7, 0); 
+lcd.print(heartrate); 
+// Display alert message on LCD if heart rate is too low or too high 
+if (heartrate < 60 || heartrate > 100)
+{ 
+  lcd.setCursor(0, 1); 
+  lcd.print("Alert: Abnormal HR"); 
+} 
+else
+{ 
+  lcd.setCursor(0, 1); 
+  lcd.print("                "); // Clear the line if heart rate is normal 
+}  
+ThingSpeak.writeField(myChannelNumber, 1, heartrate, myWriteAPIKey); } 
